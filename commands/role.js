@@ -1,5 +1,5 @@
-const { SlashCommandBuilder } = require('discord.js');
-const { roles } = require('../config.json')
+const { SlashCommandBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, ActionRowBuilder, ComponentType, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { roles } = require('../config.json');
 
 function findRole(input) {
     for (const role of roles) {
@@ -9,53 +9,106 @@ function findRole(input) {
     }
 }
 
-function filterRoles(input) {
-    const filteredRoles = [];
-    for (const role of roles) {
-        let choices = []
-        choices.push(role.name);
-        choices.push(...role.alternatives);
-        for (const choice of choices) {
-            if (choice.toLowerCase().includes(input.toLowerCase())) {
-                filteredRoles.push(role);
-                break;
-            }
-        }
-    }
-    return filteredRoles;
+function findMemberRole(interaction, role) {
+    return interaction.member.roles.cache.find(r => r.id == role.id);
+}
+
+async function awaitNoChange(interaction) {
+    await interaction.editReply({ content: 'There were no changes in your roles!', components: [] });
 }
 
 module.exports = {
     data: new SlashCommandBuilder()
         .setName('role')
-        .setDescription('Assign game role')
-        .addStringOption(option =>
-            option.setName('game')
-                .setDescription('Game to search for')
-                .setRequired(true)
-                .setAutocomplete(true)),
+        .setDescription('Assign game role'),
     async execute(interaction) {
-        const input = interaction.options.getString('game');
-        const role = findRole(input);
-        if (role) {
-            let memberRole = interaction.member.roles.cache.find(r => r.id == role.id);
-            if (memberRole) {
-                interaction.member.roles.remove(memberRole);
-                console.log(`Removing from member "${interaction.user.username}" role "${memberRole.name}"`);
-                await interaction.reply(`Removed role: ${memberRole.name}!`);
-            } else {
-                let discordRole = interaction.guild.roles.cache.find(r => r.id == role.id);
-                interaction.member.roles.add(discordRole);
-                console.log(`Adding to member "${interaction.user.username}" role "${discordRole.name}"`);
-                await interaction.reply(`Added role: ${discordRole.name}!`);
-            }
-        } else {
-            await interaction.reply(`Role was not found: ${input}`);
+        const options = [];
+        for (const role of roles) {
+            const existingRole = interaction.member.roles.cache.find(r => r.id == role.id);
+            options.push(new StringSelectMenuOptionBuilder()
+                .setLabel(`${role.name} [${role.tag}]`)
+                .setValue(role.id)
+                .setDefault(existingRole !== undefined),
+            );
         }
-    },
-    async autocomplete(interaction) {
-        const input = interaction.options.getFocused();
-        const filteredRoles = filterRoles(input);
-        await interaction.respond(filteredRoles.map(role => ({ name: role.name, value: role.id })));
+
+        const select = new StringSelectMenuBuilder()
+            .setCustomId('games')
+            .setPlaceholder('Games:')
+            .setMinValues(0)
+            .setMaxValues(options.length)
+            .addOptions(options);
+
+        const confirm = new ButtonBuilder()
+            .setCustomId('confirm')
+            .setLabel('Assign!')
+            .setStyle(ButtonStyle.Primary);
+
+        const rowSelect = new ActionRowBuilder()
+            .addComponents(select);
+        const rowConfirm = new ActionRowBuilder()
+            .addComponents(confirm);
+
+        const response = await interaction.reply({
+            content: 'Select your games!',
+            components: [rowSelect, rowConfirm],
+            ephemeral: true,
+        });
+
+        const selectCollector = response.createMessageComponentCollector({ componentType: ComponentType.StringSelect, time: 3_600_000 });
+        const buttonCollector = response.createMessageComponentCollector({ componentType: ComponentType.Button, time: 3_600_000 });
+
+        let isChanged = false;
+        let savedValues = [];
+
+        selectCollector.on('collect', async i => {
+            isChanged = true;
+            savedValues = i.values;
+            i.deferUpdate();
+        });
+
+        buttonCollector.on('collect', async i => {
+            if (!isChanged) {
+                awaitNoChange(interaction);
+                return;
+            }
+
+            const addedRoles = [];
+            for (const savedValue of savedValues) {
+                const role = findRole(savedValue);
+                if (!findMemberRole(i, role)) {
+                    const discordRole = i.guild.roles.cache.find(r => r.id == role.id);
+                    i.member.roles.add(discordRole);
+                    addedRoles.push(role);
+                }
+            }
+
+            const removedRoles = [];
+            for (const role of roles) {
+                if (!savedValues.includes(role.id)) {
+                    const memberRole = findMemberRole(i, role);
+                    if (memberRole) {
+                        i.member.roles.remove(memberRole);
+                        removedRoles.push(role);
+                    }
+                }
+            }
+
+            if (addedRoles.length == 0 && removedRoles.length == 0) {
+                awaitNoChange(interaction);
+                return;
+            }
+
+            await interaction.editReply({ content: 'Your roles were successfully changed!', components: [] });
+
+            const replies = [];
+            if (removedRoles.length > 0) {
+                replies.push(`${i.user.globalName} just dropped ${removedRoles.map(role => `*${role.name}*`).join(', ')}!`);
+            }
+            if (addedRoles.length > 0) {
+                replies.push(`${i.user.globalName} now plays ${addedRoles.map(role => `*${role.name}*`).join(', ')}!`);
+            }
+            await i.reply(replies.join('\n'));
+        });
     },
 };

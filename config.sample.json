@@ -5,8 +5,8 @@
     "roles": [
         {
             "id": "",
-            "name": "",
-            "alternatives": []
+            "tag": "",
+            "name": ""
         }
     ]
 }

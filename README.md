@@ -17,8 +17,8 @@
   * `guildId`: [Enable developer modde](https://support.discord.com/hc/en-us/articles/206346498) > Right click server > Copy Server ID
   * `roles`: List of roles
     * `id`: Right click role > Copy Role ID
-    * `name`: Role name
-    * `alternatives`: List of alternative names
+    * `tag`: Role tag
+    * `name`: Role description
 
 * Server configuration:
   * Bot role should be higher than roles it would assign
@@ -29,6 +29,10 @@
 
 * `node deploy-commands.js`: Deploy commands
 * `node index.js`: Process user interaction
+
+## Development
+
+* Lint with `npx eslint ./`
 
 ## Example
 
