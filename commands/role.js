@@ -102,13 +102,17 @@ module.exports = {
             await interaction.editReply({ content: 'Your roles were successfully changed!', components: [] });
 
             const replies = [];
-            if (removedRoles.length > 0) {
-                replies.push(`${i.user.globalName} just dropped ${removedRoles.map(role => `*${role.name}*`).join(', ')}!`);
+            const removedRoleNames = removedRoles.filter(role => !role.silent).map(role => `*${role.name}*`);
+            if (removedRoleNames.length > 0) {
+                replies.push(`${i.user.globalName} just dropped ${removedRoleNames.join(', ')}!`);
             }
-            if (addedRoles.length > 0) {
-                replies.push(`${i.user.globalName} now plays ${addedRoles.map(role => `*${role.name}*`).join(', ')}!`);
+            const addedRoleNames = addedRoles.filter(role => !role.silent).map(role => `*${role.name}*`);
+            if (addedRoleNames.length > 0) {
+                replies.push(`${i.user.globalName} now plays ${addedRoleNames.join(', ')}!`);
             }
-            await i.reply(replies.join('\n'));
+            if (replies.length) {
+                await i.reply(replies.join('\n'));
+            }
         });
     },
 };

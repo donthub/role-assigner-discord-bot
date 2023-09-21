@@ -19,6 +19,7 @@
     * `id`: Right click role > Copy Role ID
     * `tag`: Role tag
     * `name`: Role description
+    * `silent`: If true, public message of the taking/leaving role will not be posted
 
 * Server configuration:
   * Bot role should be higher than roles it would assign

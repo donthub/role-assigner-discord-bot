@@ -6,7 +6,8 @@
         {
             "id": "",
             "tag": "",
-            "name": ""
+            "name": "",
+            "silent": false
         }
     ]
 }
